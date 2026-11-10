@@ -81,6 +81,11 @@ final class IconsView: NSView {
     private var bounceObserver: NSObjectProtocol?
     private let driver = FrameDriver()
 
+    /// Reports for the window previews: the icon under the pointer (nil when none) and presses.
+    var onHoverItem: ((DockItem?, NSRect) -> Void)?
+    var onPress: (() -> Void)?
+    private var reportedIndex: Int?
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -127,6 +132,7 @@ final class IconsView: NSView {
         scales = Array(repeating: 1, count: newItems.count)
         anchor = nil
         tipIndex = nil
+        reportedIndex = nil
         bounceStart = bounceStart.filter { id, _ in newItems.contains { $0.id == id && !$0.isRunning } }
         rebuildLayers()
         relayout()
@@ -134,6 +140,7 @@ final class IconsView: NSView {
     }
 
     func resetHover() {
+        reportHover(at: nil)
         hovering = false
         hoverAmount = 0
         anchor = nil
@@ -387,14 +394,25 @@ final class IconsView: NSView {
         hovering = true
         relayout()                       // magnification follows the cursor with no lag
         if hoverAmount < 1 { driver.start() }
+        reportHover(at: convert(event.locationInWindow, from: nil))
+    }
+
+    /// Tells the previews which icon is under the pointer, only when it changes.
+    private func reportHover(at point: NSPoint?) {
+        let i = point.flatMap { index(at: $0) }
+        guard i != reportedIndex else { return }
+        reportedIndex = i
+        if let i, i < rects.count { onHoverItem?(items[i], rects[i]) } else { onHoverItem?(nil, .zero) }
     }
 
     override func mouseExited(with event: NSEvent) {
+        reportHover(at: nil)
         hovering = false
         driver.start()
     }
 
     override func mouseDown(with event: NSEvent) {
+        onPress?()
         pressed = index(at: convert(event.locationInWindow, from: nil))
     }
 
@@ -406,6 +424,7 @@ final class IconsView: NSView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
+        onPress?()
         guard let i = index(at: convert(event.locationInWindow, from: nil)) else { return nil }
         let item = items[i]
         let menu = NSMenu()
