@@ -3,7 +3,8 @@ import ApplicationServices
 
 /// Brings an app's main window to the display whose Dock copy was clicked, when the app has
 /// no visible window there. Uses the Accessibility API, so DockEcho must be allowed in
-/// System Settings › Privacy & Security › Accessibility; without it, nothing is moved.
+/// System Settings › Privacy & Security › Accessibility (Device Control and Data Access
+/// since macOS 27); without it, nothing is moved.
 ///
 /// Accessibility calls are synchronous IPC with the target app: they run on a private
 /// queue with a short timeout, so an unresponsive app cannot freeze DockEcho.
@@ -43,21 +44,16 @@ enum WindowMover {
 
     /// The option is on but cannot work: the permission is missing (or was invalidated,
     /// e.g. by an ad-hoc re-signature).
-    static var needsPermission: Bool { isEnabled && !AXIsProcessTrusted() }
+    /// Uses the effective access (see Permissions): AXIsProcessTrusted alone can be wrong.
+    static var needsPermission: Bool { isEnabled && !Permissions.accessibility }
 
     private static var isAllowed: Bool {
-        if AXIsProcessTrusted() { return true }
+        if Permissions.accessibility { return true }
         if !didPrompt {
             didPrompt = true
-            let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-            _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+            Permissions.requestAccessibility()
         }
         return false
-    }
-
-    static func openAccessibilitySettings() {
-        let url = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        if let u = URL(string: url) { NSWorkspace.shared.open(u) }
     }
 
     // MARK: Requests (main thread)
