@@ -58,11 +58,41 @@ enum Permissions {
 
     // MARK: Screen Recording
 
+    /// Name of the privacy section in System Settings.
+    static var screenRecordingName: String {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0))
+            ? "Screen & System Audio Recording" : "Screen Recording"
+    }
+
     /// Set once a window capture has actually succeeded.
     static var screenCaptureWorked = false
 
-    /// Effective Screen Recording access.
-    static var screenRecording: Bool { CGPreflightScreenCaptureAccess() || screenCaptureWorked }
+    private static var cachedScreenRecording: (value: Bool, date: Date)?
+
+    /// Effective Screen Recording access (the window-name check is cached for 2 seconds).
+    static var screenRecording: Bool {
+        if CGPreflightScreenCaptureAccess() || screenCaptureWorked { return true }
+        if let cached = cachedScreenRecording, Date().timeIntervalSince(cached.date) < 2 { return cached.value }
+        let value = probeScreenRecording()
+        cachedScreenRecording = (value, Date())
+        return value
+    }
+
+    /// Without Screen Recording access, the window server hides the titles of other apps'
+    /// windows: seeing one proves access, with no prompt. (No titled window: false.)
+    static func probeScreenRecording() -> Bool {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] else { return false }
+        let me = ProcessInfo.processInfo.processIdentifier
+        return list.contains { info in
+            let pid = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? 0
+            let owner = info[kCGWindowOwnerName as String] as? String
+            guard pid != me, owner != "Dock", owner != "Window Server",
+                  (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0 else { return false }
+            return !((info[kCGWindowName as String] as? String) ?? "").isEmpty
+        }
+    }
 
     /// What CGPreflightScreenCaptureAccess reports (for diagnostics).
     static var screenRecordingReported: Bool { CGPreflightScreenCaptureAccess() }
@@ -94,7 +124,7 @@ enum Permissions {
         return [
             "\(accessibilityName): effective \(accessibility), AXIsProcessTrusted \(accessibilityReported), probe \(probe)",
             "Screen Recording: effective \(screenRecording), CGPreflightScreenCaptureAccess \(screenRecordingReported), "
-                + "capture succeeded \(screenCaptureWorked)"
+                + "window titles visible \(probeScreenRecording()), capture succeeded \(screenCaptureWorked)"
         ]
     }
 }

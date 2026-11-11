@@ -9,8 +9,18 @@ and shows window previews above the icons of the real Dock and of every copy.
 ## Build
 Requirements: macOS 12.3+, Xcode 15+ or the matching Command Line Tools (`xcode-select --install`).
 
-    ./build.sh
-    open DockEcho.app
+    ./build.sh --install
+
+This builds DockEcho.app, copies it to `/Applications` (quitting and replacing any copy that
+is running) and launches it from there. Plain `./build.sh` only builds the app in the project
+folder.
+
+**Run DockEcho from `/Applications`.** macOS ties the privacy permissions (Accessibility,
+Screen Recording) to the app and to where it is launched from. Launched from the project
+folder, the app is replaced at every build; a downloaded copy may even be run by macOS from a
+hidden temporary location (Gatekeeper's "app translocation"). In both cases the permissions
+can look granted in System Settings and still not work, and the window previews stay empty.
+From `/Applications`, they hold.
 
 A menu bar icon gives access to: About, Dock Settings… (opens System Settings > Desktop & Dock), Refresh Dock, Also Show on the Display with the Real Dock, Open Apps on DockEcho's Display, Show Window Previews, Permissions, Copy Diagnostics, Quit.
 
@@ -57,13 +67,25 @@ Permissions:
   confirm this access.
 - Both are under Menu > Permissions; the menu uses the name of your macOS version.
 
+### Permissions assistant
+When a permission is missing at launch, DockEcho opens a window, centered on the screen,
+instead of firing system prompts. It starts with a welcome page (the DockEcho icon, name,
+credits and version), followed by one page per missing permission, each with what it is used for, a miniature
+of the System Settings list showing DockEcho's switch, the steps, a live status (granted /
+waiting) and an Open System Settings button. **Next** goes to the following page.
+Screen Recording, which macOS only applies after the app is quit and reopened, comes last:
+its page ends with **Quit & Reopen**. "Don't show at launch" turns the window off; it can
+always be opened again from Menu > Permissions > Permissions Assistant…, or from the
+"Grant … Access" item shown in the menu when a needed permission is missing.
+
 ### If a permission is granted but DockEcho does not see it
 The checkmarks in Menu > Permissions reflect what actually works: DockEcho reads the Dock's
 accessibility tree, and counts Screen Recording as granted once a capture has succeeded,
 instead of trusting only what macOS reports (on macOS 27 and with rebuilt apps, the two can
 disagree). Menu > Copy Diagnostics shows both values.
 
-The usual cause is the signature. macOS ties these permissions to the app's signature; an
+First, make sure DockEcho runs from `/Applications` (`./build.sh --install`). The other
+usual cause is the signature. macOS ties these permissions to the app's signature; an
 ad-hoc signature changes at every build, so System Settings still shows the old build as
 allowed while the new one is refused. Either:
 - sign with a stable identity: `build.sh` now picks the first code-signing identity in your
@@ -109,4 +131,4 @@ stacks (fan/grid), notification badges, drag and drop.
   (System Settings > Privacy & Security > Full Disk Access). Without it the empty icon is shown.
 - Window Layouts (versions 1.1 to 1.2.1) has been removed. Layouts it saved can be deleted:
   `~/Library/Application Support/DockEcho/layouts.json`.
-- To start at login: System Settings > General > Login Items > add DockEcho.app.
+- To start at login: System Settings > General > Login Items > add /Applications/DockEcho.app.

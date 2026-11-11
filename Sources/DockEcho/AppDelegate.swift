@@ -3,6 +3,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var controller: DockController!
     private let previews = PreviewController()
+    private var assistant: PermissionsAssistant?
     private let realDock = RealDockWatcher()
     private var statusItem: NSStatusItem!
 
@@ -28,7 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         realDock.start()      // first, so the copies know which display already shows the real Dock
         controller.start()
-        if previews.isEnabled { previews.requestPermissionsIfNeeded() }
+        // Missing permissions are explained in a window rather than with bare system prompts.
+        if PermissionsAssistant.shouldShowAtLaunch { showPermissionsAssistant() }
 
         buildMenu()
     }
@@ -52,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         mainMenu.addItem(displayItem)
         // Shown only when a feature that needs Accessibility is on but the permission is missing
         // (or was invalidated, e.g. by an ad-hoc re-signature).
-        configure(accessItem, #selector(openAccessibility))
+        configure(accessItem, #selector(showPermissionsAssistant))
         accessItem.indentationLevel = 1
         accessItem.isHidden = true
         mainMenu.addItem(accessItem)
@@ -62,6 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         mainMenu.addItem(previewsItem)
 
         let permissions = NSMenu(title: "Permissions")
+        add(permissions, "Permissions Assistant…", #selector(showPermissionsAssistant))
+        permissions.addItem(.separator())
         configure(accessibilityItem, #selector(openAccessibility))
         permissions.addItem(accessibilityItem)
         configure(screenRecordingItem, #selector(openScreenRecording))
@@ -106,6 +110,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func togglePrimary() { controller.includePrimaryScreen.toggle() }
     @objc private func togglePreviews() { previews.isEnabled.toggle() }
     @objc private func toggleDisplay() { WindowMover.isEnabled.toggle() }
+
+    @objc private func showPermissionsAssistant() {
+        if let assistant {
+            assistant.show()
+            return
+        }
+        let newAssistant = PermissionsAssistant()
+        newAssistant.onClose = { [weak self] in self?.assistant = nil }
+        assistant = newAssistant
+        newAssistant.show()
+    }
 
     @objc private func openAccessibility() {
         if !Permissions.accessibility { Permissions.requestAccessibility() }
