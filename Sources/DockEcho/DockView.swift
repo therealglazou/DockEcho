@@ -420,6 +420,20 @@ final class IconsView: NSView {
         return hovering && index(at: p) != nil
     }
 
+    /// Whether the copy takes the pointer at this window point (shelf, or magnified icons while
+    /// hovering). Elsewhere its window lets clicks through to the windows below.
+    func wantsMouse(atWindowPoint p: NSPoint) -> Bool {
+        isInActiveZone(convert(p, from: nil))
+    }
+
+    /// Ends the hover when the window stops taking the pointer (no mouseExited comes then).
+    func endHover() {
+        guard hovering else { return }
+        reportHover(at: nil)
+        hovering = false
+        driver.start()
+    }
+
     /// Tells the previews which icon is under the pointer, only when it changes.
     private func reportHover(at point: NSPoint?) {
         let i = point.flatMap { index(at: $0) }

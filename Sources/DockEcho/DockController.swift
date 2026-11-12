@@ -140,6 +140,15 @@ final class DockWindow: NSPanel {
         }
     }
 
+    /// Called about 20 times per second. The window is taller than the shelf (room for magnified
+    /// icons, bounce and labels): above the shelf, clicks must reach the windows below.
+    func pointerTick(mouse: NSPoint) {
+        guard isRevealed else { return }
+        let wants = frame.contains(mouse) && root.icons.wantsMouse(atWindowPoint: convertPoint(fromScreen: mouse))
+        if ignoresMouseEvents == wants { ignoresMouseEvents = !wants }
+        if !wants { root.icons.endHover() }
+    }
+
     /// Called about 20 times per second while auto-hide is active.
     func autohideTick(mouse: NSPoint) {
         guard settings.autohide else { return }
@@ -300,17 +309,17 @@ final class DockController {
     }
 
     private func updateAutohideTimer() {
-        if settings.autohide {
-            guard autohideTimer == nil else { return }
-            let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
-                let mouse = NSEvent.mouseLocation
-                self?.windows.values.forEach { $0.autohideTick(mouse: mouse) }
+        // Always running: it also lets clicks through the copies above their shelf.
+        guard autohideTimer == nil else { return }
+        let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            let mouse = NSEvent.mouseLocation
+            self?.windows.values.forEach {
+                $0.autohideTick(mouse: mouse)
+                $0.pointerTick(mouse: mouse)
             }
-            RunLoop.main.add(t, forMode: .common)
-            autohideTimer = t
-        } else {
-            autohideTimer?.invalidate()
-            autohideTimer = nil
         }
+        RunLoop.main.add(t, forMode: .common)
+        autohideTimer = t
     }
+
 }
