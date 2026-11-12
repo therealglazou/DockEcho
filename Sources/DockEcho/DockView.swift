@@ -390,11 +390,34 @@ final class IconsView: NSView {
     override func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
 
     override func mouseMoved(with event: NSEvent) {
-        lastMain = mainCoord(convert(event.locationInWindow, from: nil))
+        let p = convert(event.locationInWindow, from: nil)
+        // The window reaches far above the shelf (magnified icons, bounce, labels): only that
+        // zone counts, as with the real Dock.
+        guard isInActiveZone(p) else {
+            if hovering { mouseExited(with: event) }
+            return
+        }
+        lastMain = mainCoord(p)
         hovering = true
         relayout()                       // magnification follows the cursor with no lag
         if hoverAmount < 1 { driver.start() }
         reportHover(at: convert(event.locationInWindow, from: nil))
+    }
+
+    /// Like the real Dock: the hover starts on the shelf, then lasts while the pointer stays on
+    /// the shelf or on the (magnified) icons.
+    private func isInActiveZone(_ p: NSPoint) -> Bool {
+        let total = metrics.baseLayout(items).total
+        let originMain = (mainLength - total) / 2
+        let main = mainCoord(p)
+        let cross: CGFloat
+        switch metrics.orientation {
+        case .bottom: cross = p.y
+        case .left:   cross = p.x
+        case .right:  cross = bounds.width - p.x
+        }
+        if main >= originMain, main <= originMain + total, cross <= metrics.shelfThickness { return true }
+        return hovering && index(at: p) != nil
     }
 
     /// Tells the previews which icon is under the pointer, only when it changes.
