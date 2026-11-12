@@ -75,6 +75,14 @@ final class DockWindow: NSPanel {
         }
     }
 
+    /// Space the copy takes along its edge; nil while it auto-hides (like the real Dock).
+    var reservation: DockReservation? {
+        guard !settings.autohide, let screen = ScreenGeometry.screen(withID: displayID) else { return nil }
+        let margin: CGFloat = 4
+        return DockReservation(screenFrame: screen.frame, visibleFrame: screen.visibleFrame,
+                               orientation: metrics.orientation, inset: margin + metrics.shelfThickness)
+    }
+
     var diagnostics: String {
         "Copy on display \(displayID): frame \(frame), on screen \(screen.map { ScreenGeometry.displayID($0) } ?? 0), "
             + "visible \(isVisible), alpha \(alphaValue), \(items.count) items"
@@ -281,6 +289,10 @@ final class DockController {
             guard let screen = ScreenGeometry.screen(withID: id) else { continue }
             window.update(items: items, settings: settings, on: screen)
         }
+    }
+
+    func reservations() -> [DockReservation] {
+        windows.values.compactMap { $0.reservation }
     }
 
     func diagnostics() -> [String] {
