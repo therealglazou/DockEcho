@@ -22,7 +22,7 @@ hidden temporary location (Gatekeeper's "app translocation"). In both cases the 
 can look granted in System Settings and still not work, and the window previews stay empty.
 From `/Applications`, they hold.
 
-A menu bar icon gives access to: About, Dock Settings… (opens System Settings > Desktop & Dock), Refresh Dock, Also Show on the Display with the Real Dock, Open Apps on DockEcho's Display, Show Window Previews, Permissions, Copy Diagnostics, Quit.
+A menu bar icon gives access to: About, Dock Settings… (opens System Settings > Desktop & Dock), Refresh Dock, Also Show on the Display with the Real Dock, Open Apps on DockEcho's Display, Keep Windows Clear of the Copies, Show Window Previews, Permissions, Copy Diagnostics, Quit.
 
 Bundle identifier: `com.glazou.DockEcho` · Version: 1.2.2
 
@@ -36,6 +36,14 @@ Bundle identifier: `com.glazou.DockEcho` · Version: 1.2.2
   access, the primary display is assumed.
 - If a display still gets no copy, use **Copy Diagnostics** in the menu and paste the result
   into a bug report: it lists the displays, the copies and their frames.
+
+## Windows under a copy
+macOS keeps filled, zoomed and tiled windows clear of the real Dock only: on the other
+displays, they end up under DockEcho's copy. **Keep Windows Clear of the Copies** (menu, on by
+default) shortens the windows of the active app that are snapped to the Dock's edge of a
+display with a copy, so they stop at the copy's shelf. Windows placed by hand elsewhere are
+left alone, as is everything while a mouse button is down (drag, live resize) and while the
+Dock auto-hides. Needs Accessibility access.
 
 ## Clicking an icon in a copy
 - Running apps are activated through LaunchServices, like the real Dock (which also sends the

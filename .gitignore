@@ -1,0 +1,4 @@
+.build/
+/DockEcho.app
+/dist
+.DS_Store

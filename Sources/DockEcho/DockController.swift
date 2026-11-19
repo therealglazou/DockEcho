@@ -75,6 +75,14 @@ final class DockWindow: NSPanel {
         }
     }
 
+    /// Space the copy takes along its edge; nil while it auto-hides (like the real Dock).
+    var reservation: DockReservation? {
+        guard !settings.autohide, let screen = ScreenGeometry.screen(withID: displayID) else { return nil }
+        let margin: CGFloat = 4
+        return DockReservation(screenFrame: screen.frame, visibleFrame: screen.visibleFrame,
+                               orientation: metrics.orientation, inset: margin + metrics.shelfThickness)
+    }
+
     var diagnostics: String {
         "Copy on display \(displayID): frame \(frame), on screen \(screen.map { ScreenGeometry.displayID($0) } ?? 0), "
             + "visible \(isVisible), alpha \(alphaValue), \(items.count) items"
@@ -130,6 +138,15 @@ final class DockWindow: NSPanel {
         } else {
             alphaValue = revealed ? 1 : 0
         }
+    }
+
+    /// Called about 20 times per second. The window is taller than the shelf (room for magnified
+    /// icons, bounce and labels): above the shelf, clicks must reach the windows below.
+    func pointerTick(mouse: NSPoint) {
+        guard isRevealed else { return }
+        let wants = frame.contains(mouse) && root.icons.wantsMouse(atWindowPoint: convertPoint(fromScreen: mouse))
+        if ignoresMouseEvents == wants { ignoresMouseEvents = !wants }
+        if !wants { root.icons.endHover() }
     }
 
     /// Called about 20 times per second while auto-hide is active.
@@ -283,22 +300,26 @@ final class DockController {
         }
     }
 
+    func reservations() -> [DockReservation] {
+        windows.values.compactMap { $0.reservation }
+    }
+
     func diagnostics() -> [String] {
         windows.keys.sorted().compactMap { windows[$0]?.diagnostics }
     }
 
     private func updateAutohideTimer() {
-        if settings.autohide {
-            guard autohideTimer == nil else { return }
-            let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
-                let mouse = NSEvent.mouseLocation
-                self?.windows.values.forEach { $0.autohideTick(mouse: mouse) }
+        // Always running: it also lets clicks through the copies above their shelf.
+        guard autohideTimer == nil else { return }
+        let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            let mouse = NSEvent.mouseLocation
+            self?.windows.values.forEach {
+                $0.autohideTick(mouse: mouse)
+                $0.pointerTick(mouse: mouse)
             }
-            RunLoop.main.add(t, forMode: .common)
-            autohideTimer = t
-        } else {
-            autohideTimer?.invalidate()
-            autohideTimer = nil
         }
+        RunLoop.main.add(t, forMode: .common)
+        autohideTimer = t
     }
+
 }

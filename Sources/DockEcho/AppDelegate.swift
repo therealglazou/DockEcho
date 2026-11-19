@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let previews = PreviewController()
     private var assistant: PermissionsAssistant?
     private let realDock = RealDockWatcher()
+    private let fitter = WindowFitter()
     private var statusItem: NSStatusItem!
 
     // Main menu
@@ -12,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let primaryItem = NSMenuItem(title: "Also Show on the Display with the Real Dock", action: nil, keyEquivalent: "")
     private let previewsItem = NSMenuItem(title: "Show Window Previews", action: nil, keyEquivalent: "")
     private let displayItem = NSMenuItem(title: "Open Apps on DockEcho's Display", action: nil, keyEquivalent: "")
+    private let fitItem = NSMenuItem(title: "Keep Windows Clear of the Copies", action: nil, keyEquivalent: "")
     private let accessItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let accessibilityItem = NSMenuItem(title: "Accessibility…", action: nil, keyEquivalent: "")
     private let screenRecordingItem = NSMenuItem(title: "Screen Recording…", action: nil, keyEquivalent: "")
@@ -29,6 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         realDock.start()      // first, so the copies know which display already shows the real Dock
         controller.start()
+        fitter.reservations = { [weak self] in self?.controller.reservations() ?? [] }
+        fitter.start()
         // Missing permissions are explained in a window rather than with bare system prompts.
         if PermissionsAssistant.shouldShowAtLaunch { showPermissionsAssistant() }
 
@@ -52,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         displayItem.toolTip = "When an app has no window on the display you click, move its window there "
             + "(requires the \(Permissions.accessibilityName) permission)."
         mainMenu.addItem(displayItem)
+        configure(fitItem, #selector(toggleFit))
+        fitItem.toolTip = "On displays with a copy, shorten filled, zoomed or tiled windows so they stop "
+            + "above it, as macOS does for the real Dock (requires the \(Permissions.accessibilityName) permission)."
+        mainMenu.addItem(fitItem)
         // Shown only when a feature that needs Accessibility is on but the permission is missing
         // (or was invalidated, e.g. by an ad-hoc re-signature).
         configure(accessItem, #selector(showPermissionsAssistant))
@@ -98,8 +106,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         primaryItem.state = controller.includePrimaryScreen ? .on : .off
         previewsItem.state = previews.isEnabled ? .on : .off
         displayItem.state = WindowMover.isEnabled ? .on : .off
+        fitItem.state = WindowFitter.isEnabled ? .on : .off
         accessItem.title = "⚠️ Grant \(Permissions.accessibilityName) Access…"
-        accessItem.isHidden = !((WindowMover.isEnabled || previews.isEnabled) && !Permissions.accessibility)
+        accessItem.isHidden = !((WindowMover.isEnabled || WindowFitter.isEnabled || previews.isEnabled) && !Permissions.accessibility)
         accessibilityItem.title = "\(Permissions.accessibilityName)…"
         accessibilityItem.state = Permissions.accessibility ? .on : .off
         screenRecordingItem.state = Permissions.screenRecording ? .on : .off
@@ -110,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func togglePrimary() { controller.includePrimaryScreen.toggle() }
     @objc private func togglePreviews() { previews.isEnabled.toggle() }
     @objc private func toggleDisplay() { WindowMover.isEnabled.toggle() }
+    @objc private func toggleFit() { WindowFitter.isEnabled.toggle() }
 
     @objc private func showPermissionsAssistant() {
         if let assistant {
